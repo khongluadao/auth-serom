@@ -4,3 +4,4 @@ python-dotenv
 flask-sqlalchemy
 pymysql
 cryptography
+python-telegram-bot
