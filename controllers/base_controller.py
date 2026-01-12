@@ -1,5 +1,4 @@
 from flask import request, jsonify, render_template, current_app, session, redirect, url_for
-from utils import decrypt_ciphertext_b64, load_private_key_from_b64
 from extensions import db
 from models.device_info import DeviceInfo
 from services.telegram_bot import log_error_to_telegram
@@ -7,17 +6,7 @@ import json
 import datetime
 import os
 
-SERVER_PRIVATE_KEY_B64 = os.environ.get("SERVER_PRIVATE_KEY_B64")
 WEB_PASSWORD = os.environ.get("WEB_PASSWORD", "Son1234@") # Default password if not set
-SERVER_PRIVATE_KEY_OBJ = None
-
-try:
-    if SERVER_PRIVATE_KEY_B64:
-        SERVER_PRIVATE_KEY_OBJ = load_private_key_from_b64(SERVER_PRIVATE_KEY_B64)
-    else:
-        print("WARNING: SERVER_PRIVATE_KEY_B64 is missing.")
-except Exception as e:
-    print(f"CRITICAL: Failed to load private key at startup: {e}")
 
 def index():
     return render_template('google_404.html'), 200
@@ -44,62 +33,18 @@ def devices():
     return render_template('devices.html', devices=all_devices)
 
 def healthy():
-    # Handle GET request
-    if request.method == 'GET':
-        sn_query = request.args.get('sn')
-        if sn_query:
-            device = DeviceInfo.query.get(sn_query)
-            if device:
-                 return jsonify({"status": device.status, "sn": device.sn}), 200
-            else:
-                 return jsonify({"status": "unknown", "error": "Device not found"}), 404
-        return jsonify({"message": "Service is running"}), 200
-
-    # Handle POST request
-    # Try to get data from JSON 'data' field, or 'ciphertext_b64', or just raw body
-    data = None
-    if request.is_json:
-        data = request.json.get('data') or request.json.get('ciphertext_b64')
-    
-    if not data:
-        # Fallback to form data
-        data = request.form.get('data') or request.form.get('ciphertext_b64')
-    
-    if not data:
-        # Fallback to raw data if it looks like a b64 string
-        raw = request.data.decode('utf-8').strip()
-        if raw:
-            data = raw
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
-
-    if not SERVER_PRIVATE_KEY_OBJ:
-        log_error_to_telegram(current_app._get_current_object(), "Server configuration error: Missing Private Key or Invalid Key")
-        return jsonify({"status": 70}), 500
-
     try:
-        decrypted_text = decrypt_ciphertext_b64(data, SERVER_PRIVATE_KEY_OBJ)
-        
-        sn = None
-        imei = None
-        st_data = {}
-        
-        try:
-            json_data = json.loads(decrypted_text)
-            if isinstance(json_data, dict):
-                sn = json_data.get('SN') or json_data.get('sn')
-                imei = json_data.get('Imei') or json_data.get('imei') or json_data.get('IMEI')
-                
-                # Extract keys starting with ST
-                for k, v in json_data.items():
-                    if k.upper().startswith('ST'):
-                        st_data[k] = v
-        except json.JSONDecodeError:
-            pass
+        # Check both args (GET) and form/json (POST)
+        sn = request.values.get('sn')
+        imei = request.values.get('imei')
+        stid = request.values.get('stid')
 
-        if not sn:
-            # Fallback to query param 'serial'
-            sn = request.args.get('serial')
+        if not sn and request.is_json:
+            data = request.get_json()
+            if data:
+                sn = data.get('sn')
+                imei = data.get('imei')
+                stid = data.get('stid')
 
         if sn:
             # Update Database
@@ -111,25 +56,30 @@ def healthy():
             if imei:
                 device.imei = imei
             
-            if st_data:
-                 # Merge or overwrite ST data
-                 device.st_data = json.dumps(st_data)
+            if stid:
+                 # Update st_data
+                 st_data_dict = {}
+                 try:
+                     if device.st_data:
+                        st_data_dict = json.loads(device.st_data)
+                 except:
+                     pass
+                 
+                 st_data_dict['stid'] = stid
+                 device.st_data = json.dumps(st_data_dict)
             
             device.updated_at = datetime.datetime.utcnow()
             db.session.commit()
             
-            # Return status and decrypted text
+            # Return status
             return jsonify({
-                "status": device.status,
-                "data_debug_will_del": json.loads(decrypted_text)
+                "status": device.status
             }), 200
 
-        return jsonify({"data": json.loads(decrypted_text), "status": "unknown"}), 200
+        # If no SN provided, but might be a check
+        return jsonify({"message": "Service is running"}), 200
 
-    except ValueError as ve:
-        log_error_to_telegram(current_app._get_current_object(), f"Decryption/Validation Error: {str(ve)}")
-        return jsonify({"status": 77}), 200
-    except Exception as e: # Catch generic DB errors here too if needed, though specific is better
+    except Exception as e: 
         db.session.rollback()
         log_error_to_telegram(current_app._get_current_object(), f"Internal Processing Error: {str(e)}")
-        return jsonify({"status": 77}), 200
+        return jsonify({"status": "error", "message": str(e)}), 500

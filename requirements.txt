@@ -1,5 +1,4 @@
 Flask
-pynacl
 python-dotenv
 flask-sqlalchemy
 pymysql
