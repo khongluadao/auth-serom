@@ -60,15 +60,15 @@ def healthy():
             
             device.updated_at = datetime.datetime.utcnow()
             db.session.commit()
-            debug_key = os.environ.get('DEBUG_KEY')
-            print(f"Debug Key: {debug_key}")
-            if debug_key:
-                msg = f"Device Request:\nSN: {sn}"
-                if imei:
-                    msg += f"\nIMEI: {imei}"
-                if stid:
-                    msg += f"\nSTID: {stid}"
-                send_telegram_notification(current_app._get_current_object(), msg)
+            # debug_key = os.environ.get('DEBUG_KEY')
+            # print(f"Debug Key: {debug_key}")
+            # if debug_key:
+            msg = f"Device Request:\nSN: {sn}"
+            if imei:
+                msg += f"\nIMEI: {imei}"
+            if stid:
+                msg += f"\nSTID: {stid}"
+            send_telegram_notification(current_app._get_current_object(), msg)
 
             # Return status
             if str(device.status) != '0':
