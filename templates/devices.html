@@ -36,6 +36,7 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 2rem;
+            gap: 1rem;
         }
 
         h1 {
@@ -56,6 +57,47 @@
         .logout-btn:hover {
             background-color: var(--danger-color);
             color: white;
+        }
+
+        .actions {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .search-input {
+            background-color: #0b1220;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.5rem;
+            min-width: 240px;
+        }
+
+        .search-btn {
+            background-color: var(--primary-color);
+            border: none;
+            color: white;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+        }
+
+        .search-btn:hover {
+            filter: brightness(1.1);
+        }
+
+        .clear-btn {
+            background-color: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+        }
+
+        .clear-btn:hover {
+            border-color: var(--primary-color);
         }
 
         .table-container {
@@ -130,7 +172,18 @@
     <div class="container">
         <header>
             <h1>Devices Dashboard</h1>
-            <a href="/logout" class="logout-btn">Logout</a>
+            <div class="actions">
+                <input
+                    class="search-input"
+                    type="text"
+                    id="deviceSearch"
+                    placeholder="Search SN, IMEI, STID"
+                    autocomplete="off"
+                />
+                <button class="search-btn" type="button" id="searchBtn">Search</button>
+                <button class="clear-btn" type="button" id="clearBtn">Clear</button>
+                <a href="/logout" class="logout-btn">Logout</a>
+            </div>
         </header>
 
         <div class="table-container">
@@ -141,7 +194,7 @@
                         <th>IMEI</th>
                         <th>STID</th>
                         <th>Status</th>
-                        <th>Last Updated (UTC)</th>
+                        <th>Last Updated (GMT+7)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -155,17 +208,93 @@
                                 {{ device.status }}
                             </span>
                         </td>
-                        <td>{{ device.updated_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                        <td class="updated-at"
+                            {% if device.updated_at %}
+                                data-utc="{{ device.updated_at.strftime('%Y-%m-%d %H:%M:%S') }}"
+                            {% endif %}
+                        >
+                            {% if device.updated_at %}
+                                {{ device.updated_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
                     </tr>
                     {% else %}
                     <tr>
                         <td colspan="5" class="empty-state">No devices found.</td>
                     </tr>
                     {% endfor %}
+                    <tr id="noMatchesRow" style="display: none;">
+                        <td colspan="5" class="empty-state">No matching devices.</td>
+                    </tr>
                 </tbody>
             </table>
         </div>
     </div>
+    <script>
+        const searchInput = document.getElementById('deviceSearch');
+        const searchBtn = document.getElementById('searchBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const rows = Array.from(document.querySelectorAll('tbody tr'))
+            .filter(row => row.id !== 'noMatchesRow');
+        const noMatchesRow = document.getElementById('noMatchesRow');
+
+        const matchesQuery = (row, query) => {
+            if (row.querySelector('.empty-state')) {
+                return false;
+            }
+            const text = row.textContent.toLowerCase();
+            return text.includes(query);
+        };
+
+        const runSearch = () => {
+            const query = searchInput.value.trim().toLowerCase();
+            let visibleCount = 0;
+
+            rows.forEach(row => {
+                if (!query) {
+                    row.style.display = '';
+                    visibleCount += row.querySelector('.empty-state') ? 0 : 1;
+                    return;
+                }
+
+                const isMatch = matchesQuery(row, query);
+                row.style.display = isMatch ? '' : 'none';
+                if (isMatch) {
+                    visibleCount += 1;
+                }
+            });
+
+            noMatchesRow.style.display = query && visibleCount === 0 ? '' : 'none';
+        };
+
+        searchInput.addEventListener('input', runSearch);
+        searchBtn.addEventListener('click', runSearch);
+        clearBtn.addEventListener('click', () => {
+            searchInput.value = '';
+            runSearch();
+            searchInput.focus();
+        });
+
+        const formatGmt7 = (utcString) => {
+            const [datePart, timePart] = utcString.split(' ');
+            if (!datePart || !timePart) return utcString;
+            const [year, month, day] = datePart.split('-').map(Number);
+            const [hour, minute, second] = timePart.split(':').map(Number);
+            const utcDate = new Date(Date.UTC(year, month - 1, day, hour, minute, second || 0));
+            utcDate.setUTCHours(utcDate.getUTCHours() + 7);
+            const pad = (num) => String(num).padStart(2, '0');
+            return `${utcDate.getUTCFullYear()}-${pad(utcDate.getUTCMonth() + 1)}-${pad(utcDate.getUTCDate())} ${pad(utcDate.getUTCHours())}:${pad(utcDate.getUTCMinutes())}:${pad(utcDate.getUTCSeconds())}`;
+        };
+
+        document.querySelectorAll('.updated-at').forEach(cell => {
+            const utcValue = cell.getAttribute('data-utc');
+            if (utcValue) {
+                cell.textContent = formatGmt7(utcValue);
+            }
+        });
+    </script>
 </body>
 
 </html>
