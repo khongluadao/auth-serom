@@ -2,7 +2,6 @@ from flask import request, jsonify, render_template, current_app, session, redir
 from extensions import db
 from models.device_info import DeviceInfo
 from services.telegram_bot import log_error_to_telegram, send_telegram_notification
-import json
 import datetime
 import os
 
@@ -57,16 +56,7 @@ def healthy():
                 device.imei = imei
             
             if stid:
-                 # Update st_data
-                 st_data_dict = {}
-                 try:
-                     if device.st_data:
-                        st_data_dict = json.loads(device.st_data)
-                 except:
-                     pass
-                 
-                 st_data_dict['stid'] = stid
-                 device.st_data = json.dumps(st_data_dict)
+                device.stid = stid
             
             device.updated_at = datetime.datetime.utcnow()
             db.session.commit()

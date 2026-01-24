@@ -139,6 +139,7 @@
                     <tr>
                         <th>Serial Number</th>
                         <th>IMEI</th>
+                        <th>STID</th>
                         <th>Status</th>
                         <th>Last Updated (UTC)</th>
                     </tr>
@@ -148,6 +149,7 @@
                     <tr>
                         <td>{{ device.sn }}</td>
                         <td>{{ device.imei or '-' }}</td>
+                        <td>{{ device.stid or '-' }}</td>
                         <td>
                             <span class="status-badge status-{{ device.status | lower }}">
                                 {{ device.status }}
@@ -157,7 +159,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="4" class="empty-state">No devices found.</td>
+                        <td colspan="5" class="empty-state">No devices found.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
