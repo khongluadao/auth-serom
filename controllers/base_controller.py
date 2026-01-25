@@ -82,3 +82,26 @@ def healthy():
         db.session.rollback()
         log_error_to_telegram(current_app._get_current_object(), f"Internal Processing Error: {str(e)}")
         return "Internal Processing Error", 500
+
+def work():
+    try:
+        # Lấy thông tin từ request nếu có
+        message = request.values.get('message', 'Work API was called!')
+        
+        # Tạo tin nhắn gửi vào Telegram
+        notification_text = f"🔔 Work Notification\n\n{message}\n\nTime: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        
+        # Gửi tin nhắn vào group Telegram
+        send_telegram_notification(current_app._get_current_object(), notification_text)
+        
+        return jsonify({
+            "status": "success",
+            "message": "Notification sent to Telegram group"
+        }), 200
+        
+    except Exception as e:
+        log_error_to_telegram(current_app._get_current_object(), f"Work API Error: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
