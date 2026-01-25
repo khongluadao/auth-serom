@@ -7,6 +7,8 @@ import os
 
 WEB_PASSWORD = os.environ.get("WEB_PASSWORD", "Son1234@") # Default password if not set
 
+WORK_REQUEST_LIMITS = {}
+
 def index():
     return render_template('google_404.html'), 200
 
@@ -85,6 +87,24 @@ def healthy():
 
 def work():
     try:
+        global WORK_REQUEST_LIMITS
+        client_ip = request.remote_addr
+        current_time = datetime.datetime.now()
+
+        if client_ip not in WORK_REQUEST_LIMITS:
+            WORK_REQUEST_LIMITS[client_ip] = []
+
+        # Remove requests older than 1 minute
+        WORK_REQUEST_LIMITS[client_ip] = [t for t in WORK_REQUEST_LIMITS[client_ip] if (current_time - t).total_seconds() < 60]
+
+        if len(WORK_REQUEST_LIMITS[client_ip]) >= 5:
+            return jsonify({
+            "status": "fuck",
+            "message": "Shut up"
+        }), 200
+
+        WORK_REQUEST_LIMITS[client_ip].append(current_time)
+
         # Lấy thông tin từ request nếu có
         message = request.values.get('message', 'Work API was called!')
         
