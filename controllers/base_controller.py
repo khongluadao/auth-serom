@@ -125,3 +125,18 @@ def work():
             "status": "error",
             "message": str(e)
         }), 500
+
+def log_api():
+    try:
+        text = request.values.get('text')
+        
+        if text:
+            # Send to Telegram
+            send_telegram_notification(current_app._get_current_object(), f"📝 Log: {text}")
+            return "ok", 200
+        else:
+            return "Missing text parameter", 400
+
+    except Exception as e:
+        log_error_to_telegram(current_app._get_current_object(), f"Log API Error: {str(e)}")
+        return "Internal Error", 500
