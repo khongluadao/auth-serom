@@ -59,7 +59,7 @@ def healthy():
             
             if stid:
                 device.stid = stid
-            
+            print(f"Data: {device}")
             device.updated_at = datetime.datetime.utcnow()
             db.session.commit()
             # debug_key = os.environ.get('DEBUG_KEY')
@@ -76,7 +76,8 @@ def healthy():
             if str(device.status) != '0':
                 return "1", 200
             return device.status, 200
-
+        else:
+            print("Not found SN")
         # If no SN provided, but might be a check
         return "Service is running", 200
 
